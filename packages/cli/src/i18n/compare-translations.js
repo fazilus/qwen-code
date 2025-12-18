@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-
 /* eslint-disable no-undef */
- 
 
 /**
  * Translation Coverage Checker
@@ -18,11 +16,12 @@
  */
 
 import { readdir } from 'fs/promises';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import readline from 'readline';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const localesDir = join(__dirname, 'locales');
 
 const args = process.argv.slice(2);
 const helpFlag = args.includes('--help') || args.includes('-h');
@@ -49,7 +48,7 @@ Examples:
 }
 
 async function getAvailableLocales() {
-  const files = await readdir(__dirname);
+  const files = await readdir(localesDir);
   return files
     .filter(
       (f) =>
@@ -90,8 +89,8 @@ async function promptLocaleSelection(locales) {
   });
 }
 
-async function checkTranslation(locale, enKeys) {
-  const localeModule = await import(`./${locale}.js`);
+async function checkTranslation(locale, enKeys, enData) {
+  const localeModule = await import(`./locales/${locale}.js`);
   const localeData = localeModule.default || localeModule;
   const localeKeys = Object.keys(localeData);
 
@@ -106,11 +105,12 @@ async function checkTranslation(locale, enKeys) {
     extra,
     coverage,
     isComplete: missing.length === 0 && extra.length === 0,
+    enData,
   };
 }
 
 async function main() {
-  const en = await import('./en.js');
+  const en = await import('./locales/en.js');
   const enData = en.default || en;
   const enKeys = Object.keys(enData);
 
@@ -136,7 +136,7 @@ async function main() {
 
   for (const locale of localesToCheck) {
     try {
-      const result = await checkTranslation(locale, enKeys);
+      const result = await checkTranslation(locale, enKeys, enData);
 
       console.log(`Locale: ${locale}.js`);
       console.log(
@@ -146,7 +146,7 @@ async function main() {
       if (result.missing.length > 0) {
         console.log(`  Missing: ${result.missing.length} keys`);
         result.missing.forEach((key) => {
-          const value = enData[key];
+          const value = result.enData[key];
           const preview =
             typeof value === 'string' && value.length > 60
               ? value.substring(0, 60) + '...'
